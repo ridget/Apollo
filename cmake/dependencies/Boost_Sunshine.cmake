@@ -3,7 +3,7 @@
 #
 include_guard(GLOBAL)
 
-set(BOOST_VERSION "1.89.0")
+set(BOOST_VERSION "1.90.0")
 set(BOOST_COMPONENTS
         filesystem
         locale
@@ -55,7 +55,7 @@ if(NOT Boost_FOUND)
     # Limit boost to the required libraries only
     set(BOOST_INCLUDE_LIBRARIES ${BOOST_COMPONENTS})
     set(BOOST_URL "https://github.com/boostorg/boost/releases/download/boost-${BOOST_VERSION}/boost-${BOOST_VERSION}-cmake.tar.xz")  # cmake-lint: disable=C0301
-    set(BOOST_HASH "SHA256=f48b48390380cfb94a629872346e3a81370dc498896f16019ade727ab72eb1ec")
+    set(BOOST_HASH "SHA256=aca59f889f0f32028ad88ba6764582b63c916ce5f77b31289ad19421a96c555f")
 
     if(CMAKE_VERSION VERSION_LESS "3.24.0")
         FetchContent_Declare(
