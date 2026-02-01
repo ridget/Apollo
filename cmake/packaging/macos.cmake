@@ -1,25 +1,52 @@
-# macos specific packaging
+# macOS specific packaging
 
-# todo - bundle doesn't produce a valid .app use cpack -G DragNDrop
+set(CPACK_GENERATOR "DragNDrop")
+
+set(CPACK_DMG_VOLUME_NAME "${CMAKE_PROJECT_NAME}")
+set(CPACK_DMG_FORMAT "UDBZ")
+
 set(CPACK_BUNDLE_NAME "${CMAKE_PROJECT_NAME}")
 set(CPACK_BUNDLE_PLIST "${APPLE_PLIST_FILE}")
-set(CPACK_BUNDLE_ICON "${PROJECT_SOURCE_DIR}/sunshine.icns")
-# set(CPACK_BUNDLE_STARTUP_COMMAND "${INSTALL_RUNTIME_DIR}/sunshine")
+set(CPACK_BUNDLE_ICON "${PROJECT_SOURCE_DIR}/apollo.icns")
 
-if(SUNSHINE_PACKAGE_MACOS)  # todo
+set(MACOS_ENTITLEMENTS_FILE "${SUNSHINE_SOURCE_ASSETS_DIR}/macos/assets/Apollo.entitlements")
+
+if(SUNSHINE_PACKAGE_MACOS)
     set(MAC_PREFIX "${CMAKE_PROJECT_NAME}.app/Contents")
     set(INSTALL_RUNTIME_DIR "${MAC_PREFIX}/MacOS")
+    set(INSTALL_RESOURCES_DIR "${MAC_PREFIX}/Resources")
+
+    set_target_properties(sunshine PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_INFO_PLIST "${APPLE_PLIST_FILE}"
+        MACOSX_BUNDLE_BUNDLE_NAME "${CMAKE_PROJECT_NAME}"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "com.sudomaker.apollo"
+        MACOSX_BUNDLE_ICON_FILE "apollo.icns"
+    )
 
     install(TARGETS sunshine
             BUNDLE DESTINATION . COMPONENT Runtime
             RUNTIME DESTINATION ${INSTALL_RUNTIME_DIR} COMPONENT Runtime)
+
+    install(FILES "${PROJECT_SOURCE_DIR}/apollo.icns"
+            DESTINATION "${INSTALL_RESOURCES_DIR}")
+
+    install(DIRECTORY "${SUNSHINE_SOURCE_ASSETS_DIR}/macos/assets/"
+            DESTINATION "${INSTALL_RESOURCES_DIR}"
+            PATTERN "*.plist" EXCLUDE)
+
+    install(FILES "${MACOS_ENTITLEMENTS_FILE}"
+            DESTINATION "${INSTALL_RESOURCES_DIR}")
 else()
     install(FILES "${SUNSHINE_SOURCE_ASSETS_DIR}/macos/misc/uninstall_pkg.sh"
             DESTINATION "${SUNSHINE_ASSETS_DIR}")
 endif()
 
 install(DIRECTORY "${SUNSHINE_SOURCE_ASSETS_DIR}/macos/assets/"
-        DESTINATION "${SUNSHINE_ASSETS_DIR}")
-# copy assets to build directory, for running without install
+        DESTINATION "${SUNSHINE_ASSETS_DIR}"
+        PATTERN "*.entitlements" EXCLUDE)
+
 file(COPY "${SUNSHINE_SOURCE_ASSETS_DIR}/macos/assets/"
         DESTINATION "${CMAKE_BINARY_DIR}/assets")

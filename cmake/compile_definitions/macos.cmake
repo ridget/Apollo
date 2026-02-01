@@ -24,7 +24,14 @@ list(APPEND SUNSHINE_EXTERNAL_LIBRARIES
         ${CORE_MEDIA_LIBRARY}
         ${CORE_VIDEO_LIBRARY}
         ${FOUNDATION_LIBRARY}
-        ${VIDEO_TOOLBOX_LIBRARY})
+        ${VIDEO_TOOLBOX_LIBRARY}
+        ${METAL_LIBRARY}
+        ${IO_SURFACE_LIBRARY}
+        ${CORE_GRAPHICS_LIBRARY})
+
+if(SCREEN_CAPTURE_KIT_LIBRARY)
+    list(APPEND SUNSHINE_EXTERNAL_LIBRARIES ${SCREEN_CAPTURE_KIT_LIBRARY})
+endif()
 
 set(APPLE_PLIST_FILE "${SUNSHINE_SOURCE_ASSETS_DIR}/macos/assets/Info.plist")
 
@@ -45,6 +52,12 @@ set(PLATFORM_TARGET_FILES
         "${CMAKE_SOURCE_DIR}/third-party/TPCircularBuffer/TPCircularBuffer.c"
         "${CMAKE_SOURCE_DIR}/third-party/TPCircularBuffer/TPCircularBuffer.h"
         ${APPLE_PLIST_FILE})
+
+if(SCREEN_CAPTURE_KIT_LIBRARY)
+    list(APPEND PLATFORM_TARGET_FILES
+            "${CMAKE_SOURCE_DIR}/src/platform/macos/screencapture.h"
+            "${CMAKE_SOURCE_DIR}/src/platform/macos/screencapture.mm")
+endif()
 
 if(SUNSHINE_ENABLE_TRAY)
     list(APPEND SUNSHINE_EXTERNAL_LIBRARIES

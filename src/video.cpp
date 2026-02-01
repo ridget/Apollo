@@ -980,13 +980,14 @@ namespace video {
       vt_init_avcodec_hardware_input_buffer
     ),
     {
-      // Common options
+      // AV1 options - Apple Silicon M3+ has hardware AV1 encoding
       {
         {"allow_sw"s, &config::video.vt.vt_allow_sw},
         {"require_sw"s, &config::video.vt.vt_require_sw},
-        {"realtime"s, &config::video.vt.vt_realtime},
+        {"realtime"s, 1},
         {"prio_speed"s, 1},
         {"max_ref_frames"s, 1},
+        {"constant_bit_rate"s, 1},
       },
       {},  // SDR-specific options
       {},  // HDR-specific options
@@ -996,13 +997,14 @@ namespace video {
       "av1_videotoolbox"s,
     },
     {
-      // Common options
+      // HEVC options - optimized for Apple Silicon media engine
       {
         {"allow_sw"s, &config::video.vt.vt_allow_sw},
         {"require_sw"s, &config::video.vt.vt_require_sw},
-        {"realtime"s, &config::video.vt.vt_realtime},
+        {"realtime"s, 1},
         {"prio_speed"s, 1},
         {"max_ref_frames"s, 1},
+        {"constant_bit_rate"s, 1},
       },
       {},  // SDR-specific options
       {},  // HDR-specific options
@@ -1012,13 +1014,14 @@ namespace video {
       "hevc_videotoolbox"s,
     },
     {
-      // Common options
+      // H.264 options - optimized for low latency streaming
       {
         {"allow_sw"s, &config::video.vt.vt_allow_sw},
         {"require_sw"s, &config::video.vt.vt_require_sw},
-        {"realtime"s, &config::video.vt.vt_realtime},
+        {"realtime"s, 1},
         {"prio_speed"s, 1},
         {"max_ref_frames"s, 1},
+        {"constant_bit_rate"s, 1},
       },
       {},  // SDR-specific options
       {},  // HDR-specific options
@@ -1030,7 +1033,7 @@ namespace video {
       },
       "h264_videotoolbox"s,
     },
-    DEFAULT
+    PARALLEL_ENCODING
   };
 #endif
 

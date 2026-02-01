@@ -3,10 +3,38 @@
 <plist version="1.0">
 <dict>
   <key>CFBundleIdentifier</key>
-  <string>dev.lizardbyte.sunshine</string>
+  <string>com.sudomaker.apollo</string>
   <key>CFBundleName</key>
-  <string>Sunshine</string>
+  <string>Apollo</string>
+  <key>CFBundleDisplayName</key>
+  <string>Apollo</string>
+  <key>CFBundleExecutable</key>
+  <string>sunshine</string>
+  <key>CFBundleVersion</key>
+  <string>1.0.0</string>
+  <key>CFBundleShortVersionString</key>
+  <string>1.0.0</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleSignature</key>
+  <string>????</string>
+  <key>CFBundleIconFile</key>
+  <string>apollo.icns</string>
+  <key>LSMinimumSystemVersion</key>
+  <string>12.3</string>
+  <key>LSApplicationCategoryType</key>
+  <string>public.app-category.utilities</string>
+  <key>NSHighResolutionCapable</key>
+  <true/>
+  <key>NSSupportsAutomaticGraphicsSwitching</key>
+  <true/>
   <key>NSMicrophoneUsageDescription</key>
-  <string>This app requires access to your microphone to stream audio.</string>
+  <string>Apollo requires microphone access to capture and stream audio from your Mac.</string>
+  <key>NSCameraUsageDescription</key>
+  <string>Apollo may use camera access for streaming purposes.</string>
+  <key>NSScreenCaptureUsageDescription</key>
+  <string>Apollo requires screen recording permission to capture and stream your display.</string>
+  <key>NSAppleEventsUsageDescription</key>
+  <string>Apollo needs to control applications for game streaming functionality.</string>
 </dict>
 </plist>

@@ -39,6 +39,8 @@ if(UNIX)
 endif()
 
 if(APPLE)
+    set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "Build for Apple Silicon only")
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "12.3" CACHE STRING "Minimum macOS version (ScreenCaptureKit requires 12.3)")
     option(SUNSHINE_CONFIGURE_PORTFILE
             "Configure macOS Portfile. Recommended to use with SUNSHINE_CONFIGURE_ONLY" OFF)
     option(SUNSHINE_PACKAGE_MACOS
