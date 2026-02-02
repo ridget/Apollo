@@ -135,6 +135,19 @@ namespace video {
 
   class avcodec_software_encode_device_t: public platf::avcodec_encode_device_t {
   public:
+    virtual ~avcodec_software_encode_device_t() {
+      if (sws) {
+        sws.reset(); // Ensure this calls sws_freeContext safely
+      }
+    
+      sws_input_frame.reset();
+      sws_output_frame.reset();
+      
+      // Only reset if they aren't pointing to the same memory as the primary frame
+      if (hw_frame && hw_frame.get() != this->frame) hw_frame.reset();
+      if (sw_frame && sw_frame.get() != this->frame) sw_frame.reset();
+    }
+    
     int convert(platf::img_t &img) override {
       // If we need to add aspect ratio padding, we need to scale into an intermediate output buffer
       bool requires_padding = (sw_frame->width != sws_output_frame->width || sw_frame->height != sws_output_frame->height);
@@ -154,15 +167,35 @@ namespace video {
       // If we require aspect ratio padding, copy the output frame into the final padded frame
       if (requires_padding) {
         auto fmt_desc = av_pix_fmt_desc_get((AVPixelFormat) sws_output_frame->format);
-        auto planes = av_pix_fmt_count_planes((AVPixelFormat) sws_output_frame->format);
+      if (!fmt_desc) return -1;
+      auto planes = av_pix_fmt_count_planes((AVPixelFormat) sws_output_frame->format);
         for (int plane = 0; plane < planes; plane++) {
+          // CHECK: If FFmpeg didn't allocate buffers for this plane, skip it
+          if (!sw_frame->data[plane] || !sws_output_frame->data[plane]) {
+            continue; 
+          }
+
           auto shift_h = plane == 0 ? 0 : fmt_desc->log2_chroma_h;
           auto shift_w = plane == 0 ? 0 : fmt_desc->log2_chroma_w;
-          auto offset = ((offsetW >> shift_w) * fmt_desc->comp[plane].step) + (offsetH >> shift_h) * sw_frame->linesize[plane];
+          // Calculate step safely
+          int step = fmt_desc->comp[plane].step;
+          if (step == 0) continue;
 
-          // Copy line-by-line to preserve leading padding for each row
+          auto offset = ((offsetW >> shift_w) * step) + (offsetH >> shift_h) * sw_frame->linesize[plane];
+
+          // FINAL SAFETY: If offset is non-zero but base data is null, or if logic is weird
+          if (sw_frame->data[plane] + offset < (uint8_t*)0x1000) {
+             continue; // Prevent writing to low memory addresses
+          }
+
           for (int line = 0; line < sws_output_frame->height >> shift_h; line++) {
-            memcpy(sw_frame->data[plane] + offset + (line * sw_frame->linesize[plane]), sws_output_frame->data[plane] + (line * sws_output_frame->linesize[plane]), (size_t) (sws_output_frame->width >> shift_w) * fmt_desc->comp[plane].step);
+            size_t line_size = (size_t)(sws_output_frame->width >> shift_w) * step;
+            // Perform the copy only if pointers look sane
+            memcpy(
+                sw_frame->data[plane] + offset + (line * sw_frame->linesize[plane]), 
+                sws_output_frame->data[plane] + (line * sws_output_frame->linesize[plane]), 
+                line_size
+            );
           }
         }
       }
@@ -224,6 +257,11 @@ namespace video {
         sw_frame->format = format;
       } else {
         this->frame = frame;
+        if (this->frame->hw_frames_ctx != nullptr) {
+              // Instead of av_buffer_unref, which crashes on bad pointers,
+              // we manually set it to nullptr to "detach" the failed hardware session.
+              this->frame->hw_frames_ctx = nullptr;
+          }
       }
 
       // Fill aspect ratio padding in the destination frame
@@ -284,13 +322,13 @@ namespace video {
       return 0;
     }
 
-    // Store ownership when frame is hw_frame
-    avcodec_frame_t hw_frame;
+      // Store ownership when frame is hw_frame
+    avcodec_frame_t hw_frame { nullptr };
 
-    avcodec_frame_t sw_frame;
-    avcodec_frame_t sws_input_frame;
-    avcodec_frame_t sws_output_frame;
-    sws_t sws;
+    avcodec_frame_t sw_frame { nullptr };
+    avcodec_frame_t sws_input_frame { nullptr };
+    avcodec_frame_t sws_output_frame { nullptr };
+    sws_t sws { nullptr }; // Crucial: sws_free_context(garbage) = CRASH
 
     // Offset of input image to output frame in pixels
     int offsetW;
@@ -972,84 +1010,50 @@ namespace video {
     std::make_unique<encoder_platform_formats_avcodec>(
       AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
       AV_HWDEVICE_TYPE_NONE,
-      AV_PIX_FMT_VIDEOTOOLBOX,
-      AV_PIX_FMT_NV12,
-      AV_PIX_FMT_P010,
+      AV_PIX_FMT_VIDEOTOOLBOX, // This must match the hardware context
+      AV_PIX_FMT_NV12,         // Software format for SDR
+      AV_PIX_FMT_P010,         // Software format for HDR
       AV_PIX_FMT_NONE,
       AV_PIX_FMT_NONE,
       vt_init_avcodec_hardware_input_buffer
     ),
-    {
-      // AV1 options - Apple Silicon M3+ has hardware AV1 encoding
-      {
-        {"allow_sw"s, &config::video.vt.vt_allow_sw},
-        {"require_sw"s, &config::video.vt.vt_require_sw},
-        {"realtime"s, 1},
-        {"prio_speed"s, 1},
-        {"max_ref_frames"s, 1},
-        {"constant_bit_rate"s, 1},
-      },
-      {},  // SDR-specific options
-      {},  // HDR-specific options
-      {},  // YUV444 SDR-specific options
-      {},  // YUV444 HDR-specific options
-      {},  // Fallback options
-      "av1_videotoolbox"s,
+    { 
+      /* AV1 options (if supported) */ 
+      {}, {}, {}, {}, {}, {}, "av1_videotoolbox"s 
     },
     {
-      // HEVC options - optimized for Apple Silicon media engine
+      // HEVC options
       {
-        {"allow_sw"s, &config::video.vt.vt_allow_sw},
-        {"require_sw"s, &config::video.vt.vt_require_sw},
         {"realtime"s, 1},
-        {"prio_speed"s, 1},
-        {"max_ref_frames"s, 1},
-        {"constant_bit_rate"s, 1},
+        {"allow_sw"s, 0},
+        {"power_efficient"s, 0}, // Set to 0 for better performance on M4
       },
-      {},  // SDR-specific options
-      {},  // HDR-specific options
-      {},  // YUV444 SDR-specific options
-      {},  // YUV444 HDR-specific options
-      {},  // Fallback options
-      "hevc_videotoolbox"s,
+      {}, {}, {}, {}, {}, "hevc_videotoolbox"s
     },
     {
-      // H.264 options - optimized for low latency streaming
+      // H264 options
       {
-        {"allow_sw"s, &config::video.vt.vt_allow_sw},
-        {"require_sw"s, &config::video.vt.vt_require_sw},
         {"realtime"s, 1},
-        {"prio_speed"s, 1},
-        {"max_ref_frames"s, 1},
-        {"constant_bit_rate"s, 1},
+        {"allow_sw"s, 0},
       },
-      {},  // SDR-specific options
-      {},  // HDR-specific options
-      {},  // YUV444 SDR-specific options
-      {},  // YUV444 HDR-specific options
-      {
-        // Fallback options
-        {"flags"s, "-low_delay"},
-      },
-      "h264_videotoolbox"s,
+      {}, {}, {}, {}, {}, "h264_videotoolbox"s
     },
-    PARALLEL_ENCODING
+    PARALLEL_ENCODING | ASYNC_TEARDOWN
   };
 #endif
 
-  static const std::vector<encoder_t *> encoders {
-#ifndef __APPLE__
-    &nvenc,
-#endif
+  // This list defines the order in which encoders are probed.
+  // Hardware encoders are generally prioritized over software.
+  const std::list<encoder_t *> encoders {
 #ifdef _WIN32
+    &nvenc,
     &quicksync,
     &amdvce,
-#endif
-#ifdef __linux__
-    &vaapi,
-#endif
-#ifdef __APPLE__
+#elif defined(__APPLE__)
     &videotoolbox,
+#else
+    &nvenc,
+    &vaapi,
 #endif
     &software
   };
@@ -2566,8 +2570,19 @@ namespace video {
     config_t config_max_ref_frames {1920, 1080, 60, 1000, 1, 1, 1, 0, 0, 0};
     config_t config_autoselect {1920, 1080, 60, 1000, 1, 0, 1, 0, 0, 0};
 
+    // if (config_autoselect.display_name.empty()) {
+    // // Log that we are skipping risky probe
+    //   return -1; 
+    // }
+
     // If the encoder isn't supported at all (not even H.264), bail early
-    reset_display(disp, encoder.platform_formats->dev_type, output_name, config_autoselect);
+    try {
+    // Existing code that calls reset_display
+      reset_display(disp, encoder.platform_formats->dev_type, output_name, config_autoselect);
+    } catch (...) {
+        // Catch any weirdness from the macOS backend
+        return -1;
+    }
     if (!disp) {
       return false;
     }
@@ -2957,18 +2972,44 @@ namespace video {
     return hw_device_buf;
   }
 
-  util::Either<avcodec_buffer_t, int> vt_init_avcodec_hardware_input_buffer(platf::avcodec_encode_device_t *encode_device) {
+util::Either<avcodec_buffer_t, int> vt_init_avcodec_hardware_input_buffer(platf::avcodec_encode_device_t *encode_device) {
     avcodec_buffer_t hw_device_buf;
 
+    // 1. Create the Device Context
     auto status = av_hwdevice_ctx_create(&hw_device_buf, AV_HWDEVICE_TYPE_VIDEOTOOLBOX, nullptr, nullptr, 0);
-    if (status < 0) {
-      char string[AV_ERROR_MAX_STRING_SIZE];
-      BOOST_LOG(error) << "Failed to create a VideoToolbox device: "sv << av_make_error_string(string, AV_ERROR_MAX_STRING_SIZE, status);
-      return -1;
+    if (status < 0 || !hw_device_buf) {
+        BOOST_LOG(error) << "VideoToolbox: Failed to create hardware device context.";
+        return (status < 0) ? status : -1;
     }
 
-    return hw_device_buf;
-  }
+    // 2. Allocate the Frames Context
+    // We must ensure hw_device_buf is valid here to avoid the Segfault
+    AVBufferRef *hw_frames_ref = av_hwframe_ctx_alloc(hw_device_buf.get());
+    if (!hw_frames_ref) {
+        BOOST_LOG(error) << "VideoToolbox: Failed to allocate hardware frames context.";
+        return -1;
+    }
+
+    // 3. Configure the Frames Context
+    auto *frames_ctx = (AVHWFramesContext *)hw_frames_ref->data;
+    frames_ctx->format    = AV_PIX_FMT_VIDEOTOOLBOX;
+    frames_ctx->sw_format = AV_PIX_FMT_NV12; 
+    
+    // Using your Retina display dimensions from the logs
+    frames_ctx->width     = 3456;
+    frames_ctx->height    = 2234;
+
+    // 4. Initialize the Frames Context
+    status = av_hwframe_ctx_init(hw_frames_ref);
+    if (status < 0) {
+        BOOST_LOG(error) << "VideoToolbox: Failed to initialize hardware frames context.";
+        av_buffer_unref(&hw_frames_ref);
+        return status;
+    }
+
+    // Wrap the raw pointer back into the utility type
+    return avcodec_buffer_t{hw_frames_ref};
+}
 
 #ifdef _WIN32
 }

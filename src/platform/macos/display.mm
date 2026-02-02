@@ -192,7 +192,13 @@ namespace platf {
     }
     BOOST_LOG(info) << "Configuring selected display ("sv << display->display_id << ") to stream"sv;
 
-    display->sc_capture = [[ApolloScreenCapture alloc] initWithDisplay:display->display_id frameRate:config.framerate];
+
+    @try {
+        display->sc_capture = [[ApolloScreenCapture alloc] initWithDisplay:display->display_id frameRate:config.framerate];
+    } @catch (NSException *exception) {
+        BOOST_LOG(error) << "Objective-C Exception during ApolloScreenCapture init: " << [exception name].UTF8String;
+        return nullptr;
+    }
 
     if (!display->sc_capture) {
       BOOST_LOG(error) << "ScreenCaptureKit setup failed."sv;

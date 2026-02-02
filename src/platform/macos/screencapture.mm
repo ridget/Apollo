@@ -64,7 +64,7 @@
 
   [SCShareableContent getShareableContentWithCompletionHandler:^(SCShareableContent *content, NSError *error) {
     if (error) {
-      errorDescription = [error localizedDescription];
+      errorDescription = [[error localizedDescription] copy];
       dispatch_semaphore_signal(setupSemaphore);
       return;
     }
@@ -83,7 +83,7 @@
     }
 
     if (!targetDisplay) {
-      errorDescription = @"No display found";
+      errorDescription = [@"No display found" copy];
       dispatch_semaphore_signal(setupSemaphore);
       return;
     }
