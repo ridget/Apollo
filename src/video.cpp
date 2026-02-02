@@ -1562,6 +1562,7 @@ namespace video {
     // fallback options, we may need to allow more retries
     // to try applying each set.
     avcodec_ctx_t ctx;
+    BOOST_LOG(info) << "Creating encoder with config: "sv << config.width << "x"sv << config.height << " (passed: "sv << width << "x"sv << height << ")"sv;
     for (int retries = 0; retries < 2; retries++) {
       ctx.reset(avcodec_alloc_context3(codec));
       ctx->width = config.width;
