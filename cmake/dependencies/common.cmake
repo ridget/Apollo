@@ -65,6 +65,9 @@ else()
         "${FFMPEG_PREPARED_BINARIES}/lib/libswscale.a"
         "${FFMPEG_PREPARED_BINARIES}/lib/libavutil.a"
         "${FFMPEG_PREPARED_BINARIES}/lib/libcbs.a"
+        "${FFMPEG_PREPARED_BINARIES}/lib/libSvtAv1Enc.a"
+        "${FFMPEG_PREPARED_BINARIES}/lib/libx264.a"
+        "${FFMPEG_PREPARED_BINARIES}/lib/libx265.a"
         ${FFMPEG_PLATFORM_LIBRARIES})
 endif()
 
