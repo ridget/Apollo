@@ -157,6 +157,7 @@ namespace platf {
 
     auto display_array = [ApolloScreenCapture displayNames];
     BOOST_LOG(info) << "Detecting displays (ScreenCaptureKit)"sv;
+    BOOST_LOG(info) << "Found "sv << [display_array count] << " displays"sv;
     for (NSDictionary *item in display_array) {
       NSNumber *display_id = item[@"id"];
       NSString *name = item[@"displayName"];
@@ -174,6 +175,7 @@ namespace platf {
       return nullptr;
     }
 
+    BOOST_LOG(info) << "Screen capture initialized: "sv << display->sc_capture.frameWidth << "x"sv << display->sc_capture.frameHeight;
     display->width = display->sc_capture.frameWidth;
     display->height = display->sc_capture.frameHeight;
     display->env_width = display->width;
