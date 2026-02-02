@@ -105,53 +105,59 @@ namespace platf {
         return 1;
       }
 
-      __block int result = 0;
+      __block int result = -1;
+      __block std::shared_ptr<av_sample_buf_t> captured_sample_buffer;
+      __block std::shared_ptr<av_pixel_buf_t> captured_pixel_buffer;
 
-      auto signal = [sc_capture capture:^(CMSampleBufferRef sampleBuffer) {
-        if (!sampleBuffer) {
-          result = -1;
-          return false;
+      dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+
+      [sc_capture captureSingleFrame:^(CMSampleBufferRef sampleBuffer, NSError *error) {
+        if (error || !sampleBuffer) {
+          NSLog(@"ApolloScreenCapture: dummy_img capture failed: %@", error ?: @"No sample buffer");
+          dispatch_semaphore_signal(semaphore);
+          return;
         }
 
         CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
         if (!imageBuffer) {
-          result = -1;
-          return false;
+          NSLog(@"ApolloScreenCapture: dummy_img no image buffer in sample");
+          dispatch_semaphore_signal(semaphore);
+          return;
         }
 
-        auto new_sample_buffer = std::make_shared<av_sample_buf_t>(sampleBuffer);
-        auto new_pixel_buffer = std::make_shared<av_pixel_buf_t>(new_sample_buffer->buf);
+        captured_sample_buffer = std::make_shared<av_sample_buf_t>(sampleBuffer);
+        captured_pixel_buffer = std::make_shared<av_pixel_buf_t>(captured_sample_buffer->buf);
 
-        if (!new_pixel_buffer->data()) {
-          result = -1;
-          return false;
+        if (!captured_pixel_buffer->data()) {
+          NSLog(@"ApolloScreenCapture: dummy_img pixel buffer data is null");
+          captured_sample_buffer.reset();
+          captured_pixel_buffer.reset();
+          dispatch_semaphore_signal(semaphore);
+          return;
         }
 
-        auto av_img = (av_img_t *) img;
-
-        auto old_data_retainer = std::make_shared<temp_retain_av_img_t>(
-          av_img->sample_buffer,
-          av_img->pixel_buffer,
-          img->data
-        );
-
-        av_img->sample_buffer = new_sample_buffer;
-        av_img->pixel_buffer = new_pixel_buffer;
-        img->data = new_pixel_buffer->data();
-
-        img->width = (int) CVPixelBufferGetWidth(new_pixel_buffer->buf);
-        img->height = (int) CVPixelBufferGetHeight(new_pixel_buffer->buf);
-        img->row_pitch = (int) CVPixelBufferGetBytesPerRow(new_pixel_buffer->buf);
-        img->pixel_pitch = img->row_pitch / img->width;
-
-        old_data_retainer = nullptr;
-
-        return false;
+        result = 0;
+        dispatch_semaphore_signal(semaphore);
       }];
 
-      dispatch_semaphore_wait(signal, DISPATCH_TIME_FOREVER);
+      dispatch_semaphore_wait(semaphore, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC));
 
-      return result;
+      if (result != 0 || !captured_pixel_buffer || !captured_pixel_buffer->data()) {
+        return -1;
+      }
+
+      auto av_img = (av_img_t *) img;
+
+      av_img->sample_buffer = captured_sample_buffer;
+      av_img->pixel_buffer = captured_pixel_buffer;
+      img->data = captured_pixel_buffer->data();
+
+      img->width = (int) CVPixelBufferGetWidth(captured_pixel_buffer->buf);
+      img->height = (int) CVPixelBufferGetHeight(captured_pixel_buffer->buf);
+      img->row_pitch = (int) CVPixelBufferGetBytesPerRow(captured_pixel_buffer->buf);
+      img->pixel_pitch = img->row_pitch / img->width;
+
+      return 0;
     }
 
     static void setResolution(void *display, int width, int height) {

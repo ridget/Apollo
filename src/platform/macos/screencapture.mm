@@ -210,6 +210,124 @@
   return self.captureHDR;
 }
 
+- (BOOL)captureSingleFrame:(void (^)(CMSampleBufferRef _Nullable sampleBuffer, NSError * _Nullable error))completionHandler {
+  if (!self.contentFilter) {
+    if (completionHandler) {
+      completionHandler(nil, [NSError errorWithDomain:@"ApolloScreenCapture" code:-1 userInfo:@{NSLocalizedDescriptionKey: @"Content filter not initialized"}]);
+    }
+    return NO;
+  }
+
+  SCStreamConfiguration *config = [[SCStreamConfiguration alloc] init];
+  config.width = self.frameWidth;
+  config.height = self.frameHeight;
+  config.pixelFormat = self.pixelFormat;
+  config.showsCursor = YES;
+
+  if (@available(macOS 14.0, *)) {
+    [SCScreenshotManager captureImageWithFilter:self.contentFilter
+                                  configuration:config
+                              completionHandler:^(CGImageRef _Nullable image, NSError * _Nullable error) {
+      if (error || !image) {
+        if (completionHandler) {
+          completionHandler(nil, error ?: [NSError errorWithDomain:@"ApolloScreenCapture" code:-2 userInfo:@{NSLocalizedDescriptionKey: @"Failed to capture image"}]);
+        }
+        return;
+      }
+
+      CVPixelBufferRef pixelBuffer = NULL;
+      size_t width = CGImageGetWidth(image);
+      size_t height = CGImageGetHeight(image);
+
+      NSDictionary *pixelBufferAttributes = @{
+        (id)kCVPixelBufferCGImageCompatibilityKey: @YES,
+        (id)kCVPixelBufferCGBitmapContextCompatibilityKey: @YES,
+        (id)kCVPixelBufferWidthKey: @(width),
+        (id)kCVPixelBufferHeightKey: @(height),
+        (id)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_32BGRA)
+      };
+
+      CVReturn status = CVPixelBufferCreate(kCFAllocatorDefault, width, height, kCVPixelFormatType_32BGRA, (__bridge CFDictionaryRef)pixelBufferAttributes, &pixelBuffer);
+
+      if (status != kCVReturnSuccess || !pixelBuffer) {
+        if (completionHandler) {
+          completionHandler(nil, [NSError errorWithDomain:@"ApolloScreenCapture" code:-3 userInfo:@{NSLocalizedDescriptionKey: @"Failed to create pixel buffer"}]);
+        }
+        return;
+      }
+
+      CVPixelBufferLockBaseAddress(pixelBuffer, 0);
+      void *pxdata = CVPixelBufferGetBaseAddress(pixelBuffer);
+      size_t bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer);
+
+      CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+      CGContextRef context = CGBitmapContextCreate(pxdata, width, height, 8, bytesPerRow, colorSpace, kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little);
+
+      if (context) {
+        CGContextDrawImage(context, CGRectMake(0, 0, width, height), image);
+        CGContextRelease(context);
+      }
+      CGColorSpaceRelease(colorSpace);
+      CVPixelBufferUnlockBaseAddress(pixelBuffer, 0);
+
+      CMVideoFormatDescriptionRef formatDescription = NULL;
+      CMVideoFormatDescriptionCreateForImageBuffer(kCFAllocatorDefault, pixelBuffer, &formatDescription);
+
+      CMSampleTimingInfo timingInfo = {kCMTimeInvalid, kCMTimeZero, kCMTimeInvalid};
+      CMSampleBufferRef sampleBuffer = NULL;
+
+      if (formatDescription) {
+        CMSampleBufferCreateForImageBuffer(kCFAllocatorDefault, pixelBuffer, YES, NULL, NULL, formatDescription, &timingInfo, &sampleBuffer);
+        CFRelease(formatDescription);
+      }
+
+      CVPixelBufferRelease(pixelBuffer);
+
+      if (completionHandler) {
+        completionHandler(sampleBuffer, nil);
+      }
+
+      if (sampleBuffer) {
+        CFRelease(sampleBuffer);
+      }
+    }];
+    return YES;
+  } else {
+    __block CMSampleBufferRef capturedBuffer = NULL;
+    __block BOOL frameReceived = NO;
+    dispatch_semaphore_t frameSemaphore = dispatch_semaphore_create(0);
+
+    dispatch_semaphore_t signal = [self capture:^(CMSampleBufferRef sampleBuffer) {
+      if (!frameReceived && sampleBuffer) {
+        capturedBuffer = (CMSampleBufferRef)CFRetain(sampleBuffer);
+        frameReceived = YES;
+        dispatch_semaphore_signal(frameSemaphore);
+      }
+      return NO;
+    }];
+
+    long frameResult = dispatch_semaphore_wait(frameSemaphore, dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC));
+
+    dispatch_semaphore_wait(signal, dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC));
+
+    if (frameResult != 0 || !capturedBuffer) {
+      if (completionHandler) {
+        completionHandler(nil, [NSError errorWithDomain:@"ApolloScreenCapture" code:-5 userInfo:@{NSLocalizedDescriptionKey: @"Failed to capture frame (fallback path)"}]);
+      }
+      if (capturedBuffer) {
+        CFRelease(capturedBuffer);
+      }
+      return NO;
+    }
+
+    if (completionHandler) {
+      completionHandler(capturedBuffer, nil);
+    }
+    CFRelease(capturedBuffer);
+    return YES;
+  }
+}
+
 #pragma mark - SCStreamOutput
 
 - (void)stream:(SCStream *)stream didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer ofType:(SCStreamOutputType)type {

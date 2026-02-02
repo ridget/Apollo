@@ -2486,9 +2486,29 @@ namespace video {
     }
 
     {
-      // Image buffers are large, so we use a separate scope to free it immediately after convert()
       auto img = disp->alloc_img();
-      if (!img || disp->dummy_img(img.get()) || session->convert(*img)) {
+      if (!img) {
+        BOOST_LOG(error) << "Failed to allocate image for encoder validation"sv;
+        return -1;
+      }
+
+      if (disp->dummy_img(img.get())) {
+        BOOST_LOG(error) << "Failed to capture dummy image for encoder validation"sv;
+        return -1;
+      }
+
+      if (!img->data) {
+        BOOST_LOG(error) << "Dummy image has null data pointer"sv;
+        return -1;
+      }
+
+      if (img->width <= 0 || img->height <= 0) {
+        BOOST_LOG(error) << "Dummy image has invalid dimensions: "sv << img->width << "x"sv << img->height;
+        return -1;
+      }
+
+      if (session->convert(*img)) {
+        BOOST_LOG(error) << "Failed to convert dummy image"sv;
         return -1;
       }
     }

@@ -42,6 +42,7 @@ API_AVAILABLE(macos(12.3))
 - (void)stopCapture;
 - (BOOL)isHDRSupported;
 - (BOOL)isHDRActive;
+- (BOOL)captureSingleFrame:(void (^)(CMSampleBufferRef _Nullable sampleBuffer, NSError * _Nullable error))completionHandler;
 
 @end
 
