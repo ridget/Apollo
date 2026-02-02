@@ -10,7 +10,6 @@
 struct AVFrame;
 
 namespace platf {
-  void free_frame(AVFrame *frame);
 
   class nv12_zero_device: public avcodec_encode_device_t {
     // display holds a pointer to an av_video object. Since the namespaces of AVFoundation
@@ -28,12 +27,6 @@ namespace platf {
 
     int convert(img_t &img) override;
     int set_frame(AVFrame *frame, AVBufferRef *hw_frames_ctx) override;
-    bool needs_hw_frames_ctx() override {
-      return false;
-    }
-
-  private:
-    util::safe_ptr<AVFrame, free_frame> av_frame;
   };
 
 }  // namespace platf

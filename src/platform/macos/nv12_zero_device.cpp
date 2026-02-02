@@ -24,8 +24,6 @@ namespace platf {
     CVPixelBufferRelease((CVPixelBufferRef) data);
   }
 
-  util::safe_ptr<AVFrame, free_frame> av_frame;
-
   int nv12_zero_device::convert(platf::img_t &img) {
     auto *av_img = (av_img_t *) &img;
 
@@ -33,19 +31,17 @@ namespace platf {
       return -1;
     }
 
-    av_buffer_unref(&av_frame->buf[0]);
+    av_buffer_unref(&frame->buf[0]);
 
-    av_frame->buf[0] = av_buffer_create((uint8_t *) CFRetain(av_img->pixel_buffer->buf), 0, free_buffer, nullptr, 0);
+    frame->buf[0] = av_buffer_create((uint8_t *) CFRetain(av_img->pixel_buffer->buf), 0, free_buffer, nullptr, 0);
 
-    av_frame->data[3] = (uint8_t *) av_img->pixel_buffer->buf;
+    frame->data[3] = (uint8_t *) av_img->pixel_buffer->buf;
 
     return 0;
   }
 
   int nv12_zero_device::set_frame(AVFrame *frame, AVBufferRef *hw_frames_ctx) {
     this->frame = frame;
-
-    av_frame.reset(frame);
 
     resolution_fn(this->display, frame->width, frame->height);
 

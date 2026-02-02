@@ -1661,8 +1661,8 @@ namespace video {
           encoding_stream_context = std::move(derived_context);
         }
 
-        // Initialize avcodec hardware frames (unless device provides hw buffers directly)
-        if (encode_device->needs_hw_frames_ctx()) {
+        // Initialize avcodec hardware frames
+        {
           avcodec_buffer_t frame_ref {av_hwframe_ctx_alloc(encoding_stream_context.get())};
 
           auto frame_ctx = (AVHWFramesContext *) frame_ref->data;
