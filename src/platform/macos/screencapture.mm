@@ -59,12 +59,12 @@
   }
 
   __block BOOL setupComplete = NO;
-  __block NSError *setupError = nil;
+  __block NSString *errorDescription = nil;
   dispatch_semaphore_t setupSemaphore = dispatch_semaphore_create(0);
 
   [SCShareableContent getShareableContentWithCompletionHandler:^(SCShareableContent *content, NSError *error) {
     if (error) {
-      setupError = error;
+      errorDescription = [error localizedDescription];
       dispatch_semaphore_signal(setupSemaphore);
       return;
     }
@@ -83,7 +83,7 @@
     }
 
     if (!targetDisplay) {
-      setupError = [NSError errorWithDomain:@"ApolloScreenCapture" code:-1 userInfo:@{NSLocalizedDescriptionKey: @"No display found"}];
+      errorDescription = @"No display found";
       dispatch_semaphore_signal(setupSemaphore);
       return;
     }
@@ -115,7 +115,7 @@
     [self.stream addStreamOutput:self type:SCStreamOutputTypeScreen sampleHandlerQueue:captureQueue error:&addOutputError];
 
     if (addOutputError) {
-      setupError = addOutputError;
+      errorDescription = [addOutputError localizedDescription];
       dispatch_semaphore_signal(setupSemaphore);
       return;
     }
@@ -124,10 +124,15 @@
     dispatch_semaphore_signal(setupSemaphore);
   }];
 
-  dispatch_semaphore_wait(setupSemaphore, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC));
+  long waitResult = dispatch_semaphore_wait(setupSemaphore, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC));
 
-  if (!setupComplete || setupError) {
-    NSLog(@"ApolloScreenCapture: Setup failed: %@", setupError);
+  if (waitResult != 0) {
+    NSLog(@"ApolloScreenCapture: Setup timed out");
+    return nil;
+  }
+
+  if (!setupComplete) {
+    NSLog(@"ApolloScreenCapture: Setup failed: %@", errorDescription ?: @"Unknown error");
     return nil;
   }
 

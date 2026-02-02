@@ -1562,7 +1562,6 @@ namespace video {
     // fallback options, we may need to allow more retries
     // to try applying each set.
     avcodec_ctx_t ctx;
-    BOOST_LOG(info) << "Creating encoder with config: "sv << config.width << "x"sv << config.height << " (passed: "sv << width << "x"sv << height << ")"sv;
     for (int retries = 0; retries < 2; retries++) {
       ctx.reset(avcodec_alloc_context3(codec));
       ctx->width = config.width;
@@ -1662,8 +1661,8 @@ namespace video {
           encoding_stream_context = std::move(derived_context);
         }
 
-        // Initialize avcodec hardware frames
-        {
+        // Initialize avcodec hardware frames (unless device provides hw buffers directly)
+        if (encode_device->needs_hw_frames_ctx()) {
           avcodec_buffer_t frame_ref {av_hwframe_ctx_alloc(encoding_stream_context.get())};
 
           auto frame_ctx = (AVHWFramesContext *) frame_ref->data;
@@ -1788,8 +1787,6 @@ namespace video {
       // Allow the encoding device a final opportunity to set/unset or override any options
       encode_device->init_codec_options(ctx.get(), &options);
 
-      BOOST_LOG(info) << "Before avcodec_open2: codec="sv << codec->name << " ctx->width="sv << ctx->width << " ctx->height="sv << ctx->height
-                      << " pix_fmt="sv << ctx->pix_fmt << " sw_pix_fmt="sv << ctx->sw_pix_fmt;
       if (auto status = avcodec_open2(ctx.get(), codec, &options)) {
         char err_str[AV_ERROR_MAX_STRING_SIZE] {0};
 

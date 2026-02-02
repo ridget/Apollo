@@ -434,6 +434,15 @@ namespace platf {
     virtual void init_hwframes(AVHWFramesContext *frames) {};
 
     /**
+     * @brief Indicates whether the device requires hw_frames_ctx to be set on the codec context.
+     * @return true if hw_frames_ctx should be set (default), false to skip setting it.
+     * @note Zero-copy devices that provide hardware buffers directly may return false.
+     */
+    virtual bool needs_hw_frames_ctx() {
+      return true;
+    };
+
+    /**
      * @brief Provides a hook for allow platform-specific code to adjust codec options.
      * @note Implementations may set or modify codec options prior to codec initialization.
      */
