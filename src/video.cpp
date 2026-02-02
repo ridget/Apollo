@@ -1567,6 +1567,8 @@ namespace video {
       ctx.reset(avcodec_alloc_context3(codec));
       ctx->width = config.width;
       ctx->height = config.height;
+      ctx->coded_width = config.width;
+      ctx->coded_height = config.height;
       ctx->time_base = AVRational {1, config.framerate};
       ctx->framerate = AVRational {config.framerate, 1};
 
@@ -1790,7 +1792,8 @@ namespace video {
       // Allow the encoding device a final opportunity to set/unset or override any options
       encode_device->init_codec_options(ctx.get(), &options);
 
-      BOOST_LOG(info) << "Before avcodec_open2: ctx->width="sv << ctx->width << " ctx->height="sv << ctx->height;
+      BOOST_LOG(info) << "Before avcodec_open2: codec="sv << codec->name << " ctx->width="sv << ctx->width << " ctx->height="sv << ctx->height
+                      << " pix_fmt="sv << ctx->pix_fmt << " sw_pix_fmt="sv << ctx->sw_pix_fmt;
       if (auto status = avcodec_open2(ctx.get(), codec, &options)) {
         char err_str[AV_ERROR_MAX_STRING_SIZE] {0};
 
