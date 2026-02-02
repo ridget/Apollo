@@ -1786,6 +1786,7 @@ namespace video {
       // Allow the encoding device a final opportunity to set/unset or override any options
       encode_device->init_codec_options(ctx.get(), &options);
 
+      BOOST_LOG(info) << "Before avcodec_open2: ctx->width="sv << ctx->width << " ctx->height="sv << ctx->height;
       if (auto status = avcodec_open2(ctx.get(), codec, &options)) {
         char err_str[AV_ERROR_MAX_STRING_SIZE] {0};
 
