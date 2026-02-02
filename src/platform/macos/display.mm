@@ -105,9 +105,27 @@ namespace platf {
         return 1;
       }
 
+      __block int result = 0;
+
       auto signal = [sc_capture capture:^(CMSampleBufferRef sampleBuffer) {
+        if (!sampleBuffer) {
+          result = -1;
+          return false;
+        }
+
+        CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
+        if (!imageBuffer) {
+          result = -1;
+          return false;
+        }
+
         auto new_sample_buffer = std::make_shared<av_sample_buf_t>(sampleBuffer);
         auto new_pixel_buffer = std::make_shared<av_pixel_buf_t>(new_sample_buffer->buf);
+
+        if (!new_pixel_buffer->data()) {
+          result = -1;
+          return false;
+        }
 
         auto av_img = (av_img_t *) img;
 
@@ -133,7 +151,7 @@ namespace platf {
 
       dispatch_semaphore_wait(signal, DISPATCH_TIME_FOREVER);
 
-      return 0;
+      return result;
     }
 
     static void setResolution(void *display, int width, int height) {
@@ -274,9 +292,27 @@ namespace platf {
         return 1;
       }
 
+      __block int result = 0;
+
       auto signal = [av_capture capture:^(CMSampleBufferRef sampleBuffer) {
+        if (!sampleBuffer) {
+          result = -1;
+          return false;
+        }
+
+        CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
+        if (!imageBuffer) {
+          result = -1;
+          return false;
+        }
+
         auto new_sample_buffer = std::make_shared<av_sample_buf_t>(sampleBuffer);
         auto new_pixel_buffer = std::make_shared<av_pixel_buf_t>(new_sample_buffer->buf);
+
+        if (!new_pixel_buffer->data()) {
+          result = -1;
+          return false;
+        }
 
         auto av_img = (av_img_t *) img;
 
@@ -302,7 +338,7 @@ namespace platf {
 
       dispatch_semaphore_wait(signal, DISPATCH_TIME_FOREVER);
 
-      return 0;
+      return result;
     }
 
     static void setResolution(void *display, int width, int height) {
