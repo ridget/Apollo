@@ -1679,6 +1679,10 @@ namespace video {
           }
 
           ctx->hw_frames_ctx = av_buffer_ref(frame_ref.get());
+          
+          auto check_ctx = (AVHWFramesContext *) ctx->hw_frames_ctx->data;
+          BOOST_LOG(info) << "After hw_frames_ctx init: frame_ctx="sv << check_ctx->width << "x"sv << check_ctx->height
+                          << " codec_ctx="sv << ctx->width << "x"sv << ctx->height;
         }
 
         ctx->slices = config.slicesPerFrame;
