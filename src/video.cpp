@@ -1669,7 +1669,7 @@ namespace video {
           frame_ctx->sw_format = sw_fmt;
           frame_ctx->height = ctx->height;
           frame_ctx->width = ctx->width;
-          frame_ctx->initial_pool_size = 0;
+          frame_ctx->initial_pool_size = 1;
 
           // Allow the hwdevice to modify hwframe context parameters
           encode_device->init_hwframes(frame_ctx);
