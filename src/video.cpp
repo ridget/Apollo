@@ -1662,9 +1662,6 @@ namespace video {
           encoding_stream_context = std::move(derived_context);
         }
 
-#ifdef __APPLE__
-        ctx->hw_device_ctx = av_buffer_ref(encoding_stream_context.get());
-#else
         // Initialize avcodec hardware frames
         {
           avcodec_buffer_t frame_ref {av_hwframe_ctx_alloc(encoding_stream_context.get())};
@@ -1684,12 +1681,7 @@ namespace video {
           }
 
           ctx->hw_frames_ctx = av_buffer_ref(frame_ref.get());
-          
-          auto check_ctx = (AVHWFramesContext *) ctx->hw_frames_ctx->data;
-          BOOST_LOG(info) << "After hw_frames_ctx init: frame_ctx="sv << check_ctx->width << "x"sv << check_ctx->height
-                          << " codec_ctx="sv << ctx->width << "x"sv << ctx->height;
         }
-#endif
 
         ctx->slices = config.slicesPerFrame;
       } else /* software */ {
